@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thanh toán - EV Station</title>
+    <link rel="stylesheet" th:href="@{/css/thanhtoan.css}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+
+<body>
+<div class="main-container">
+    <div class="sidebar">
+        <div class="sidebar-header">EV Station</div>
+        <ul class="sidebar-menu">
+            <li><a th:href="@{/home}"><i class="fas fa-home"></i> Trang chủ</a></li>
+            <li><a th:href="@{/datxe}"><i class="fas fa-bicycle"></i> Đặt xe</a></li>
+            <li><a th:href="@{/lichsuthue}"><i class="fas fa-history"></i> Lịch sử thuê</a></li>
+            <li><a th:href="@{/ho-so}"><i class="fas fa-user-circle"></i> Hồ sơ cá nhân</a></li>
+        </ul>
+    </div>
+
+    <div class="content-area">
+        <div class="top-bar">
+            <div class="search-bar">
+                <input id="station-search" type="text" placeholder="Tìm điểm thuê gần bạn">
+                <button id="btn-find-station" type="button"><i class="fas fa-location-crosshairs"></i></button>
+                <div id="station-hint" class="station-hint"></div>
+            </div>
+            <div class="auth-buttons">
+                <div class="user-info">
+                    <span class="welcome-text">Xin chào, <b class="username-label">---</b></span>
+                </div>
+            </div>
+        </div>
+
+        <h1 class="page-title">Xác nhận thanh toán</h1>
+
+        <div class="payment-grid">
+
+            <div class="card payment-summary-card">
+                <h2>Chi tiết chuyến thuê</h2>
+                <div class="summary-item">
+                    <p class="summary-label">Mã chuyến:</p>
+                    <p class="summary-value rental-code">-</p>
+                </div>
+                <div class="summary-item">
+                    <p class="summary-label">Khách hàng:</p>
+                    <p class="summary-value customer-name">-</p>
+                </div>
+                <div class="summary-item">
+                    <p class="summary-label">Loại xe:</p>
+                    <p class="summary-value vehicle-type">-</p>
+                </div>
+                <div class="summary-item">
+                    <p class="summary-label">Điểm thuê:</p>
+                    <p class="summary-value station-name">-</p>
+                </div>
+                <div class="summary-item">
+                    <p class="summary-label">Thời gian thuê:</p>
+                    <p class="summary-value time-range">-</p>
+                </div>
+                <div class="summary-item">
+                    <p class="summary-label">Quãng đường:</p>
+                    <p class="summary-value distance">-</p>
+                </div>
+            </div>
+
+            <div class="card payment-info-card">
+                <h2>Thông tin thanh toán</h2>
+                <div class="payment-detail-row">
+                    <p class="detail-label">Số ngày thuê:</p>
+                    <p class="detail-value rental-days">-</p>
+                </div>
+                <div class="payment-detail-row">
+                    <p class="detail-label">Phí thuê cơ bản:</p>
+                    <p class="detail-value basic-fee">-</p>
+                </div>
+                <div class="payment-detail-row">
+                    <p class="detail-label">Phương thức:</p>
+                    <p class="detail-value" id="payment-method-text">-</p>
+                </div>
+                <div class="payment-detail-row total-amount">
+                    <p class="detail-label">Tổng cộng:</p>
+                    <p class="detail-value total-fee">-</p>
+                </div>
+
+                <div class="payment-method-selection">
+                    <label for="payment-method">Chọn phương thức thanh toán:</label>
+                    <select id="payment-method" class="form-select">
+                        <option value="cash">Tiền mặt</option>
+                        <option value="bank_transfer">Chuyển khoản</option>
+                    </select>
+                    <p class="note small" style="margin-top:8px; color:#2f4f2f">Tiền mặt: xác nhận GPLX/CCCD tại quầy. Chuyển khoản: hệ thống tính giá theo số ngày thuê.</p>
+                </div>
+
+                <div class="upload-section">
+                    <h3>CCCD & GPLX (bắt buộc nếu chọn chuyển khoản)</h3>
+                    <div class="upload-actions">
+                        <button type="button" class="btn-upload" id="btn-upload-id">Tải CCCD/CMND</button>
+                        <button type="button" class="btn-upload" id="btn-upload-license">Tải GPLX</button>
+                        <span class="upload-status" id="upload-status-text">Chưa tải lên</span>
+                    </div>
+                </div>
+
+                <button class="btn-confirm-payment"><i class="fas fa-check-circle"></i> Xác nhận thanh toán</button>
+                <button class="btn-cancel-payment"><i class="fas fa-times-circle"></i> Hủy bỏ</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+<!-- ============================ -->
+<!--  POPUP QR THANH TOÁN SEPAY  -->
+<!-- ============================ -->
+<div id="qrModal"
+     style="display:none; position: fixed; top:0; left:0; width:100%; height:100%;
+            background: rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
+
+    <div style="background:white; padding:25px; border-radius:12px; width:380px; text-align:center;">
+        <h2 style="margin-bottom:10px;">Quét mã để thanh toán</h2>
+
+        <p id="depositNote" style="display:none; margin:6px 0 12px; color:#c62828; font-weight:600; font-size:14px;"></p>
+
+        <img id="qrImage" src="" style="width:250px; border:1px solid #ddd; margin-bottom:15px">
+
+        <p><b>Số tiền:</b> <span id="qrAmount"></span> VNĐ</p>
+        <p><b>Chủ TK:</b> <span id="qrAccountName"></span></p>
+        <p><b>Số TK:</b> <span id="qrAccountNumber"></span></p>
+        <p><b>Mã đơn:</b> <span id="qrOrder"></span></p>
+
+        <button onclick="checkPaymentStatus()"
+                style="margin-top:15px; padding:10px 18px; border:none; background:#388e3c; color:white; border-radius:6px;">
+            Tôi đã thanh toán
+        </button>
+
+        <br><br>
+        <button onclick="closeQR()"
+                style="padding:8px 15px; border:none; background:#f44336; color:white; border-radius:5px;">
+            Đóng
+        </button>
+    </div>
+</div>
+
+<script src="/js/station-search.js"></script>
+<script src="/js/thanhtoan.js"></script>
+</body>
+</html>

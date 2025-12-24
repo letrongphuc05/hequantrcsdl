@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Báo cáo & Phân tích</title>
+    <link rel="stylesheet" th:href="@{/css/admin.css}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+
+<div class="admin-container">
+
+    <div th:replace="~{fragments/admin-nav :: sidebar(activePage='reports')}"></div>
+
+    <div class="main-content">
+        <header class="content-header">
+            <div style="flex-grow: 1;"></div>
+            <div class="admin-profile" onclick="toggleProfileMenu(event)">
+                <img th:src="@{/images/admin.png}" alt="Admin" onerror="this.src='https://via.placeholder.com/40'">
+                <span>Admin</span>
+                <i class="fas fa-chevron-down" style="font-size: 12px; margin-left: 8px; color: #777;"></i>
+                <div class="profile-dropdown" id="profileDropdown">
+                    <a th:href="@{/logout}" class="logout-item">
+                        <i class="fas fa-sign-out-alt"></i> Đăng xuất
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <main class="content-body">
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h1>Báo cáo & Phân tích</h1>
+
+                <div class="report-filter">
+                    <select id="stationFilter" style="padding: 10px 15px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; min-width: 200px; background-color: white; cursor: pointer;">
+                        <option value="all">-- Tất cả điểm thuê --</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <h3>Doanh thu tổng</h3>
+                    <div class="value" id="kpi-revenue">0đ</div>
+                </div>
+                <div class="kpi-card">
+                    <h3>Tổng số chuyến</h3>
+                    <div class="value" id="kpi-trips">0</div>
+                </div>
+                <div class="kpi-card">
+                    <h3>Tỷ lệ lấp đầy</h3>
+                    <div class="value" id="kpi-utilization">0%</div>
+                </div>
+            </div>
+
+            <div class="ai-suggestion-box" style="background: #eef9fd; border-left: 5px solid #3498db; padding: 20px; margin-bottom: 25px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                <h3 style="margin-top: 0; color: #2980b9; display: flex; align-items: center; font-size: 18px; margin-bottom: 15px;">
+                    AI Dự báo & Gợi ý chiến lược
+                </h3>
+                <div id="ai-suggestions-content">
+                    <p style="color: #666;">Đang phân tích dữ liệu...</p>
+                </div>
+            </div>
+
+            <div class="chart-grid-container">
+                <div class="chart-grid-left">
+                    <div class="chart-container">
+                        <h2>Biểu đồ Doanh thu</h2>
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-grid-right">
+                    <div class="chart-container">
+                        <h2>Giờ cao điểm thuê xe</h2>
+                        <canvas id="peakHoursChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script th:src="@{/js/admin-reports.js}"></script>
+
+</body>
+</html>
