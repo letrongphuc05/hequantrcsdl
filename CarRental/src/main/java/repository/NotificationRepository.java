@@ -9,12 +9,12 @@ import java.util.List;
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, String> {
 
-    // 1. Tìm tất cả thông báo của User, sắp xếp mới nhất lên đầu
+    // Tìm tất cả thông báo của user, xếp mới nhất lên đầu
     List<Notification> findByUserIdOrderByCreatedDateDesc(String userId);
 
-    // 2. Tìm các thông báo CHƯA ĐỌC (isRead = false) của User, sắp xếp mới nhất lên đầu
+    // Tìm thông báo chưa đọc
     List<Notification> findByUserIdAndIsReadFalseOrderByCreatedDateDesc(String userId);
 
-    // 3. Đếm số lượng thông báo chưa đọc
+    // Đếm số thông báo chưa đọc
     long countByUserIdAndIsReadFalse(String userId);
 }

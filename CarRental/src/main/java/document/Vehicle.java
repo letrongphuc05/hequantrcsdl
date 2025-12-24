@@ -22,6 +22,12 @@ public class Vehicle {
     @Column(name = "name")
     private String name;
 
+    @Column(name = "brand") // Thêm trường hãng xe
+    private String brand;
+
+    @Column(name = "type") // Thêm trường loại xe (Sedan, SUV...)
+    private String type;
+
     @Column(name = "image")
     private String image;
 
@@ -57,7 +63,4 @@ public class Vehicle {
 
     @Column(name = "booking_status")
     private String bookingStatus;
-
-    // Lưu ý: Nếu trong MongoDB bạn có trường List, bạn cần xử lý riêng (vd: @ElementCollection)
-    // Ở đây tôi giữ các trường cơ bản map 1-1 với cột trong MySQL
 }

@@ -18,8 +18,13 @@ public interface VehicleRepository extends JpaRepository<Vehicle, String> {
 
     List<Vehicle> findByStationIdAndBookingStatus(String stationId, String bookingStatus);
 
-    // --- THÊM ĐOẠN NÀY ĐỂ THAY THẾ FILE CŨ ---
-    // Hàm update trạng thái xe trực tiếp bằng câu lệnh SQL
+    // Cần hàm này để AI Suggestions trong RentalRecordService hoạt động
+    List<Vehicle> findByStationIdAndBookingStatusNot(String stationId, String bookingStatus);
+
+    // FIX LỖI: Hàm đếm số lượng xe theo trạng thái tại trạm
+    long countByStationIdAndBookingStatus(String stationId, String bookingStatus);
+
+    // Cập nhật trạng thái xe trực tiếp (Dùng trong RentalController)
     @Modifying
     @Transactional
     @Query("UPDATE Vehicle v SET v.bookingStatus = :status WHERE v.id = :id")
