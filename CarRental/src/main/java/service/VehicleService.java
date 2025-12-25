@@ -23,15 +23,9 @@ public class VehicleService {
         });
     }
 
-    // THÊM HÀM NÀY ĐỂ FIX LỖI SEPAY
     @Transactional
     public void markDeposited(String vehicleId, String rentalId) {
-        vehicleRepo.findById(vehicleId).ifPresent(v -> {
-            v.setBookingStatus("RENTED");
-            v.setAvailable(false);
-            v.setPendingRentalId(rentalId);
-            vehicleRepo.save(v);
-        });
+        markRented(vehicleId, rentalId);
     }
 
     @Transactional

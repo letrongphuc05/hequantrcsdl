@@ -15,27 +15,16 @@ public class Review {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
-    @Column(name = "booking_id")
     private String bookingId;
-
-    @Column(name = "user_id")
     private String userId;
-
-    @Column(name = "car_id")
     private String carId;
-
-    @Column(name = "staff_id")
     private String staffId;
-
-    @Column(name = "car_rating")
     private Integer carRating;
-
-    @Column(name = "staff_rating")
     private Integer staffRating;
 
-    @Column(name = "comment", columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     private String comment;
 
-    @Column(name = "review_date")
-    private LocalDateTime reviewDate = LocalDateTime.now();
+    @Column(name = "created_at")
+    private LocalDateTime createdAt = LocalDateTime.now();
 }

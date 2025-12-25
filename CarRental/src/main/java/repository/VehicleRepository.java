@@ -21,6 +21,5 @@ public interface VehicleRepository extends JpaRepository<Vehicle, String> {
 
     List<Vehicle> findByStationIdAndAvailable(String stationId, boolean available);
 
-    // Hàm cực kỳ quan trọng cho StationController
     long countByStationIdAndBookingStatus(String stationId, String bookingStatus);
 }

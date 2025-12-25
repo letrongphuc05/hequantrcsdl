@@ -8,8 +8,10 @@ import CarRental.example.service.NotificationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional; // Import này rất quan trọng
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -21,9 +23,9 @@ public class CustomerSupportController {
     private final NotificationService notificationService;
     private final UserRepository userRepository;
 
-    public CustomerSupportController(CustomerSupportRepository supportRepo, 
-                                      NotificationService notificationService,
-                                      UserRepository userRepository) {
+    public CustomerSupportController(CustomerSupportRepository supportRepo,
+                                     NotificationService notificationService,
+                                     UserRepository userRepository) {
         this.supportRepo = supportRepo;
         this.notificationService = notificationService;
         this.userRepository = userRepository;
@@ -31,6 +33,7 @@ public class CustomerSupportController {
 
     // 1. Khách hàng gửi yêu cầu
     @PostMapping("/create")
+    @Transactional
     public ResponseEntity<?> createTicket(@RequestBody Map<String, String> body) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null) return ResponseEntity.status(401).build();
@@ -39,19 +42,22 @@ public class CustomerSupportController {
         ticket.setUsername(auth.getName());
         ticket.setTitle(body.get("title"));
         ticket.setContent(body.get("content"));
+        ticket.setStatus("PENDING");
+        ticket.setCreatedAt(LocalDateTime.now());
 
         supportRepo.save(ticket);
         return ResponseEntity.ok("Gửi thành công");
     }
 
-    // 2. Khách hàng xem lịch sử yêu cầu của mình
+    // 2. Khách hàng xem lịch sử yêu cầu
     @GetMapping("/my-history")
     public ResponseEntity<List<CustomerSupport>> getMyHistory() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null) return ResponseEntity.status(401).build();
 
+        // Lỗi gạch đỏ ở đây sẽ hết sau khi bạn cập nhật Repository
         List<CustomerSupport> list = supportRepo.findByUsername(auth.getName());
-        list.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt())); // Mới nhất lên đầu
+        list.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
 
         return ResponseEntity.ok(list);
     }
@@ -66,6 +72,7 @@ public class CustomerSupportController {
 
     // 4. Admin phản hồi
     @PostMapping("/admin/reply/{id}")
+    @Transactional
     public ResponseEntity<?> replyTicket(@PathVariable("id") String id, @RequestBody Map<String, String> body) {
         CustomerSupport ticket = supportRepo.findById(id).orElse(null);
         if (ticket == null) return ResponseEntity.notFound().build();
@@ -77,9 +84,10 @@ public class CustomerSupportController {
         User user = userRepository.findByUsername(ticket.getUsername());
         if (user != null) {
             String message = "Yêu cầu hỗ trợ \"" + ticket.getTitle() + "\" đã được Admin phản hồi.";
+            // Gọi Service Notification để báo cho người dùng
             notificationService.createNotification(user.getId(), message, "SUPPORT_REPLY", ticket.getId());
         }
-        
+
         return ResponseEntity.ok("Đã phản hồi");
     }
 }

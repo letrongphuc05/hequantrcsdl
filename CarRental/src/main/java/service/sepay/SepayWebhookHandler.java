@@ -27,36 +27,23 @@ public class SepayWebhookHandler {
 
     @Transactional
     public ResponseEntity<String> processWebhook(SepayWebhookData data) {
-        log.info("Webhook SePay nhận được: {}", data);
-
         String raw = (data.getDescription() != null && !data.getDescription().isBlank())
                 ? data.getDescription() : data.getContent();
 
         if (raw == null || raw.isBlank()) return ResponseEntity.ok("NO_DESCRIPTION");
 
-        String lower = raw.toLowerCase();
-        String rentalId = null;
+        Matcher matcher = Pattern.compile("rental(\\d+)").matcher(raw.toLowerCase());
+        if (!matcher.find()) return ResponseEntity.ok("NO_RENTAL_ID");
 
-        Matcher matcher = Pattern.compile("rental(\\d+)").matcher(lower);
-        if (matcher.find()) {
-            rentalId = matcher.group(0);
-        }
-
-        if (rentalId == null) return ResponseEntity.ok("NO_RENTAL_ID");
-
+        String rentalId = matcher.group(0);
         RentalRecord record = rentalRepo.findById(rentalId).orElse(null);
         if (record == null) return ResponseEntity.ok("RENTAL_NOT_FOUND");
 
-        double incomingAmount = 0;
-        try {
-            incomingAmount = Double.parseDouble(data.getAmount());
-        } catch (Exception e) {
-            try { incomingAmount = Double.parseDouble(data.getSub_amount()); } catch (Exception ignored) {}
-        }
+        double amount = 0;
+        try { amount = Double.parseDouble(data.getAmount()); } catch (Exception e) {}
 
-        record.setDepositPaidAmount(Optional.ofNullable(record.getDepositPaidAmount()).orElse(0.0) + incomingAmount);
+        record.setDepositPaidAmount(Optional.ofNullable(record.getDepositPaidAmount()).orElse(0.0) + amount);
         record.setDepositPaidAt(LocalDateTime.now());
-        record.setWalletReference(data.getTranId());
 
         if (record.getDepositPaidAmount() >= record.getTotal()) {
             record.setPaymentStatus("PAID");
@@ -68,7 +55,6 @@ public class SepayWebhookHandler {
             record.setPaymentStatus("DEPOSIT_PENDING");
             rentalRepo.save(record);
         }
-
         return ResponseEntity.ok("OK");
     }
 }

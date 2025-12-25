@@ -23,6 +23,7 @@ public class ReviewService {
     @Transactional
     public Review createReview(String bookingId, String userId, String carId, String staffId,
                                Integer carRating, Integer staffRating, String comment) {
+
         RentalRecord rental = rentalRecordRepository.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking không tồn tại"));
 
