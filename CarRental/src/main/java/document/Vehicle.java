@@ -7,8 +7,8 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "vehicles", indexes = {
-        @Index(name = "idx_station_id", columnList = "stationId"),
-        @Index(name = "idx_booking_status", columnList = "bookingStatus")
+        @Index(name = "idx_station_id", columnList = "station_id"),
+        @Index(name = "idx_booking_status", columnList = "booking_status")
 })
 @Data
 @NoArgsConstructor
@@ -22,10 +22,10 @@ public class Vehicle {
     @Column(name = "name")
     private String name;
 
-    @Column(name = "brand") // Thêm trường hãng xe
+    @Column(name = "brand")
     private String brand;
 
-    @Column(name = "type") // Thêm trường loại xe (Sedan, SUV...)
+    @Column(name = "type")
     private String type;
 
     @Column(name = "image")
@@ -63,4 +63,11 @@ public class Vehicle {
 
     @Column(name = "booking_status")
     private String bookingStatus;
+
+    // --- CÁC TRƯỜNG CẦN THIẾT CHO VEHICLE SERVICE ---
+    @Column(name = "available")
+    private boolean available = true;
+
+    @Column(name = "pending_rental_id")
+    private String pendingRentalId;
 }

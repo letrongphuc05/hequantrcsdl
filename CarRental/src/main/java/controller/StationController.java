@@ -5,6 +5,7 @@ import CarRental.example.repository.StationRepository;
 import CarRental.example.repository.VehicleRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional; // Cần thiết cho MySQL
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -20,6 +21,7 @@ public class StationController {
         this.vehicleRepo = vehicleRepo;
     }
 
+    // Lấy danh sách trạm và tính toán số xe khả dụng thực tế từ DB
     @GetMapping
     public List<Map<String, Object>> getStations() {
         List<Station> stations = stationRepo.findAll();
@@ -33,15 +35,16 @@ public class StationController {
             map.put("longitude", st.getLongitude());
             map.put("address", st.getAddress());
 
-            // Gọi hàm countByStationIdAndBookingStatus đã fix ở Repository
-            long availableCars = vehicleRepo.countByStationIdAndBookingStatus(st.getId(), "AVAILABLE");
-            map.put("availableCars", availableCars);
+            // MySQL JPA trả về kiểu long cho hàm count
+            long availableCount = vehicleRepo.countByStationIdAndBookingStatus(st.getId(), "AVAILABLE");
+            map.put("availableCars", availableCount);
 
             data.add(map);
         }
         return data;
     }
 
+    // API thống kê dành cho Admin Dashboard
     @GetMapping("/admin/all")
     public ResponseEntity<List<Map<String, Object>>> getStationsForAdmin() {
         List<Station> stations = stationRepo.findAll();
@@ -53,21 +56,50 @@ public class StationController {
             map.put("name", st.getName());
             map.put("address", st.getAddress());
 
-            // Thống kê số lượng xe theo các trạng thái khác nhau
-            map.put("statsAvailable", vehicleRepo.countByStationIdAndBookingStatus(st.getId(), "AVAILABLE"));
-            map.put("statsRented", vehicleRepo.countByStationIdAndBookingStatus(st.getId(), "RENTED")
-                    + vehicleRepo.countByStationIdAndBookingStatus(st.getId(), "PENDING_PAYMENT"));
-            map.put("statsMaintenance", vehicleRepo.countByStationIdAndBookingStatus(st.getId(), "MAINTENANCE"));
+            // Thống kê số lượng xe theo từng trạng thái tại trạm
+            long available = vehicleRepo.countByStationIdAndBookingStatus(st.getId(), "AVAILABLE");
+            long rented = vehicleRepo.countByStationIdAndBookingStatus(st.getId(), "RENTED")
+                    + vehicleRepo.countByStationIdAndBookingStatus(st.getId(), "PENDING_PAYMENT");
+            long maintenance = vehicleRepo.countByStationIdAndBookingStatus(st.getId(), "MAINTENANCE");
+
+            map.put("statsAvailable", available);
+            map.put("statsRented", rented);
+            map.put("statsMaintenance", maintenance);
 
             response.add(map);
         }
         return ResponseEntity.ok(response);
     }
 
+    // Thêm trạm mới - Cần @Transactional để lưu vào MySQL thành công
     @PostMapping("/admin/add")
-    public Station addStation(@RequestBody Station station) {
-        return stationRepo.save(station);
+    @Transactional
+    public ResponseEntity<Station> addStation(@RequestBody Station station) {
+        Station saved = stationRepo.save(station);
+        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
-    // Các phương thức Update/Delete giữ nguyên...
+    // Cập nhật trạm - Cần @Transactional
+    @PutMapping("/admin/update/{id}")
+    @Transactional
+    public ResponseEntity<Station> updateStation(@PathVariable String id, @RequestBody Station station) {
+        return stationRepo.findById(id).map(existing -> {
+            existing.setName(station.getName());
+            existing.setAddress(station.getAddress());
+            existing.setLatitude(station.getLatitude());
+            existing.setLongitude(station.getLongitude());
+            return ResponseEntity.ok(stationRepo.save(existing));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    // Xóa trạm - Cần @Transactional
+    @DeleteMapping("/admin/delete/{id}")
+    @Transactional
+    public ResponseEntity<String> deleteStation(@PathVariable String id) {
+        if (stationRepo.existsById(id)) {
+            stationRepo.deleteById(id);
+            return ResponseEntity.ok("Đã xóa trạm thành công");
+        }
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Không tìm thấy trạm");
+    }
 }

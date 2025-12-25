@@ -23,174 +23,77 @@ public class RentalRecordService {
         this.stationRepository = stationRepository;
     }
 
-    public RentalRecord saveRecord(RentalRecord record) {
-        ensureCreatedAt(record);
-        return repo.save(record);
-    }
-    public List<RentalRecord> getHistoryByUsername(String username) { return repo.findByUsername(username); }
-    public List<RentalRecord> getAll() { return repo.findAll(); }
-    public RentalRecord getById(String id) { return repo.findById(id).orElse(null); }
-    public void delete(String id) { repo.deleteById(id); }
-
-    public List<Map<String, Object>> getHistoryDetails(String username) {
-        List<RentalRecord> records = repo.findByUsername(username)
-                .stream()
-                .filter(this::isVisibleInHistory)
-                .sorted(buildHistoryComparator())
-                .toList();
-        List<Map<String, Object>> response = new ArrayList<>();
-        for (RentalRecord record : records) {
-            Map<String, Object> item = new LinkedHashMap<>();
-            StatusView statusView = resolveStatus(record);
-            item.put("record", record);
-            item.put("displayStatus", statusView.display);
-            item.put("filterStatus", statusView.filterKey);
-            vehicleRepository.findById(record.getVehicleId()).ifPresent(vehicle -> {
-                Map<String, Object> vehicleInfo = new LinkedHashMap<>();
-                vehicleInfo.put("id", vehicle.getId());
-                vehicleInfo.put("type", vehicle.getType());
-                vehicleInfo.put("plate", vehicle.getPlate());
-                vehicleInfo.put("brand", vehicle.getBrand());
-                vehicleInfo.put("price", vehicle.getPrice());
-                item.put("vehicle", vehicleInfo);
-            });
-            stationRepository.findById(record.getStationId()).ifPresent(station -> {
-                Map<String, Object> stationInfo = new LinkedHashMap<>();
-                stationInfo.put("id", station.getId());
-                stationInfo.put("name", station.getName());
-                stationInfo.put("address", station.getAddress());
-                item.put("station", stationInfo);
-            });
-            response.add(item);
-        }
-        return response;
-    }
-
-    public List<Map<String, Object>> getAllHistoryDetails() {
-        List<RentalRecord> records = repo.findAll()
-                .stream()
-                .filter(this::isVisibleInHistory)
-                .sorted(buildHistoryComparator())
-                .toList();
-        List<Map<String, Object>> response = new ArrayList<>();
-        for (RentalRecord record : records) {
-            Map<String, Object> item = new LinkedHashMap<>();
-            StatusView statusView = resolveStatus(record);
-            item.put("record", record);
-            item.put("displayStatus", statusView.display);
-            item.put("filterStatus", statusView.filterKey);
-            vehicleRepository.findById(record.getVehicleId()).ifPresent(vehicle -> {
-                Map<String, Object> vehicleInfo = new LinkedHashMap<>();
-                vehicleInfo.put("id", vehicle.getId());
-                vehicleInfo.put("type", vehicle.getType());
-                vehicleInfo.put("plate", vehicle.getPlate());
-                vehicleInfo.put("brand", vehicle.getBrand());
-                vehicleInfo.put("price", vehicle.getPrice());
-                item.put("vehicle", vehicleInfo);
-            });
-            stationRepository.findById(record.getStationId()).ifPresent(station -> {
-                Map<String, Object> stationInfo = new LinkedHashMap<>();
-                stationInfo.put("id", station.getId());
-                stationInfo.put("name", station.getName());
-                stationInfo.put("address", station.getAddress());
-                item.put("station", stationInfo);
-            });
-            response.add(item);
-        }
-        return response;
-    }
-
-    private long getSortTimestamp(RentalRecord record) {
-        if (record == null) return 0;
-        List<LocalDateTime> timestamps = new ArrayList<>();
-        Optional.ofNullable(record.getEndTime()).ifPresent(timestamps::add);
-        Optional.ofNullable(record.getStartTime()).ifPresent(timestamps::add);
-        Optional.ofNullable(record.getCreatedAt()).ifPresent(timestamps::add);
-
-        LocalDateTime newest = timestamps.stream()
-                .filter(Objects::nonNull)
-                .max(LocalDateTime::compareTo)
-                .orElse(LocalDateTime.now());
-
-        return newest.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
-    }
-
-    private Comparator<RentalRecord> buildHistoryComparator() {
-        return Comparator.comparingLong(this::getSortTimestamp).reversed();
-    }
-
-    private void ensureCreatedAt(RentalRecord record) {
-        if (record != null && record.getCreatedAt() == null) {
-            record.setCreatedAt(LocalDateTime.now());
-        }
-    }
-
-    public Map<String, Object> calculateStats(String username) {
-        List<RentalRecord> records = repo.findByUsername(username).stream().filter(this::isVisibleInHistory).toList();
-        double totalSpent = records.stream().mapToDouble(RentalRecord::getTotal).sum();
-        int totalTrips = records.size();
+    // --- HÀM MỚI THÊM ĐỂ ADMIN KHÔNG LỖI ---
+    public Map<String, Object> getGlobalStats() {
+        List<RentalRecord> allRecords = repo.findAll();
+        double totalRevenue = allRecords.stream()
+                .filter(r -> "COMPLETED".equalsIgnoreCase(r.getStatus()) || "RETURNED".equalsIgnoreCase(r.getStatus()))
+                .mapToDouble(RentalRecord::getTotal)
+                .sum();
 
         Map<String, Object> stats = new LinkedHashMap<>();
-        stats.put("totalTrips", totalTrips);
-        stats.put("totalSpent", totalSpent);
+        stats.put("totalTrips", allRecords.size());
+        stats.put("totalRevenue", totalRevenue);
+        stats.put("activeRentals", allRecords.stream().filter(r -> "IN_PROGRESS".equalsIgnoreCase(r.getStatus())).count());
         return stats;
     }
 
-    public RentalRecord signContract(String rentalId, String username) {
-        RentalRecord record = repo.findById(rentalId).orElse(null);
-        if (record == null || !Objects.equals(record.getUsername(), username)) return null;
-        record.setContractSigned(true);
-        record.setStatus("CONTRACT_SIGNED");
+    public RentalRecord saveRecord(RentalRecord record) {
+        if (record != null && record.getCreatedAt() == null) record.setCreatedAt(LocalDateTime.now());
         return repo.save(record);
     }
 
-    public RentalRecord checkIn(String rentalId, String username, String notes) {
-        RentalRecord record = repo.findById(rentalId).orElse(null);
-        if (record == null || !Objects.equals(record.getUsername(), username)) return null;
-        record.setStartTime(LocalDateTime.now());
-        record.setCheckinNotes(notes);
-        record.setStatus("IN_PROGRESS");
-        return repo.save(record);
-    }
+    public List<Map<String, Object>> getAllHistoryDetails() {
+        List<RentalRecord> records = repo.findAll().stream()
+                .filter(this::isVisibleInHistory)
+                .sorted(Comparator.comparing(RentalRecord::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
 
-    public RentalRecord requestReturn(String rentalId, String username, String notes) {
-        RentalRecord record = repo.findById(rentalId).orElse(null);
-        if (record == null || !Objects.equals(record.getUsername(), username)) return null;
-        record.setReturnNotes(notes);
-        record.setEndTime(LocalDateTime.now());
-        record.setStatus("WAITING_INSPECTION");
-        return repo.save(record);
+        List<Map<String, Object>> response = new ArrayList<>();
+        for (RentalRecord record : records) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("record", record);
+            item.put("displayStatus", resolveStatus(record).display);
+
+            vehicleRepository.findById(record.getVehicleId()).ifPresent(v -> item.put("vehicle", v));
+            stationRepository.findById(record.getStationId()).ifPresent(s -> item.put("station", s));
+            response.add(item);
+        }
+        return response;
     }
 
     public List<String> getAiSuggestions() {
         List<String> suggestions = new ArrayList<>();
-        List<RentalRecord> allRecords = repo.findAll();
-        Map<String, Long> tripsByStation = allRecords.stream()
-                .filter(r -> !"CANCELLED".equals(r.getStatus()))
-                .collect(Collectors.groupingBy(RentalRecord::getStationId, Collectors.counting()));
-
-        tripsByStation.forEach((stationId, count) -> {
-            String stationName = stationRepository.findById(stationId).map(s -> s.getName()).orElse(stationId);
-            long currentVehicles = vehicleRepository.findByStationIdAndBookingStatusNot(stationId, "MAINTENANCE").size();
-            if (currentVehicles > 0 && (count / currentVehicles) >= 5) {
-                suggestions.add("<strong>Nhu cầu cao tại " + stationName + ":</strong> AI khuyến nghị bổ sung thêm xe.");
-            }
-        });
-        if (suggestions.isEmpty()) suggestions.add("<strong>Hệ thống:</strong> Dữ liệu ổn định.");
+        long totalTrips = repo.count();
+        if (totalTrips > 100) suggestions.add("<strong>Phân tích AI:</strong> Lượng khách tăng cao, nên bổ sung thêm xe điện.");
+        else suggestions.add("<strong>Hệ thống:</strong> Dữ liệu ổn định.");
         return suggestions;
     }
 
+    public Map<String, Object> calculateStats(String username) {
+        List<RentalRecord> records = repo.findByUsername(username);
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalTrips", records.size());
+        stats.put("totalSpent", records.stream().mapToDouble(RentalRecord::getTotal).sum());
+        return stats;
+    }
+
+    public List<Map<String, Object>> getHistoryDetails(String username) {
+        return getAllHistoryDetails().stream()
+                .filter(m -> ((RentalRecord)m.get("record")).getUsername().equals(username))
+                .toList();
+    }
+
     private boolean isVisibleInHistory(RentalRecord record) {
-        if (record == null) return false;
-        String status = Optional.ofNullable(record.getStatus()).orElse("").toUpperCase();
-        return !status.equals("CANCELLED") && !status.equals("EXPIRED");
+        String s = Optional.ofNullable(record.getStatus()).orElse("").toUpperCase();
+        return !s.equals("CANCELLED") && !s.equals("EXPIRED");
     }
 
     private StatusView resolveStatus(RentalRecord record) {
-        String status = Optional.ofNullable(record.getStatus()).orElse("").toUpperCase();
-        if (status.equals("RETURNED") || status.equals("COMPLETED")) return new StatusView("Đã trả xe", "returned");
-        if (status.equals("IN_PROGRESS")) return new StatusView("Đang thuê", "active");
-        return new StatusView("Đang chờ", "rented");
+        String s = Optional.ofNullable(record.getStatus()).orElse("").toUpperCase();
+        if (s.equals("RETURNED") || s.equals("COMPLETED")) return new StatusView("Đã trả xe", "returned");
+        if (s.equals("IN_PROGRESS")) return new StatusView("Đang thuê", "active");
+        return new StatusView("Đang chờ", "pending");
     }
     private record StatusView(String display, String filterKey) {}
 }

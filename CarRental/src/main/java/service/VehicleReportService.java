@@ -22,28 +22,8 @@ public class VehicleReportService {
         return vehicleReportRepository.save(report);
     }
 
-    public Optional<VehicleReport> getReportById(String id) {
-        return vehicleReportRepository.findById(id);
-    }
-
     public List<VehicleReport> getReportsByVehicleId(String vehicleId) {
         return vehicleReportRepository.findByVehicleId(vehicleId);
-    }
-
-    public List<VehicleReport> getReportsByStationId(String stationId) {
-        return vehicleReportRepository.findByStationId(stationId);
-    }
-
-    public List<VehicleReport> getReportsByStaffId(String staffId) {
-        return vehicleReportRepository.findByStaffId(staffId);
-    }
-
-    public List<VehicleReport> getReportsByStatus(String status) {
-        return vehicleReportRepository.findByStatus(status);
-    }
-
-    public List<VehicleReport> getReportsByStationIdAndStatus(String stationId, String status) {
-        return vehicleReportRepository.findByStationIdAndStatus(stationId, status);
     }
 
     public VehicleReport updateReportStatus(String reportId, String newStatus) {
@@ -53,30 +33,17 @@ public class VehicleReportService {
             report.setStatus(newStatus);
             VehicleReport updated = vehicleReportRepository.save(report);
 
-            // If status is set to RESOLVED, update vehicle status to AVAILABLE
+            // Nếu báo cáo đã xử lý xong (RESOLVED), cập nhật xe về trạng thái sẵn sàng
             if ("RESOLVED".equalsIgnoreCase(newStatus)) {
-                Optional<Vehicle> vehicleOpt = vehicleRepository.findById(report.getVehicleId());
-                if (vehicleOpt.isPresent()) {
-                    Vehicle vehicle = vehicleOpt.get();
+                vehicleRepository.findById(report.getVehicleId()).ifPresent(vehicle -> {
                     vehicle.setAvailable(true);
                     vehicle.setBookingStatus("AVAILABLE");
-                    vehicle.setIssue(null);
+                    vehicle.setIssue(null); // Xóa bỏ ghi chú lỗi trên xe
                     vehicle.setIssueSeverity(null);
                     vehicleRepository.save(vehicle);
-                }
+                });
             }
-
             return updated;
-        }
-        return null;
-    }
-
-    public VehicleReport addNoteToReport(String reportId, String notes) {
-        Optional<VehicleReport> reportOpt = vehicleReportRepository.findById(reportId);
-        if (reportOpt.isPresent()) {
-            VehicleReport report = reportOpt.get();
-            report.setNotes(notes);
-            return vehicleReportRepository.save(report);
         }
         return null;
     }
@@ -89,4 +56,3 @@ public class VehicleReportService {
         vehicleReportRepository.deleteById(reportId);
     }
 }
-
