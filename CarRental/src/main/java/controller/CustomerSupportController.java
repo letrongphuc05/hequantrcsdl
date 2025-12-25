@@ -8,12 +8,13 @@ import CarRental.example.service.NotificationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.transaction.annotation.Transactional; // Import này rất quan trọng
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional; // QUAN TRỌNG: Phải có import này
 
 @RestController
 @RequestMapping("/api/support")
@@ -41,6 +42,7 @@ public class CustomerSupportController {
         CustomerSupport ticket = new CustomerSupport();
         ticket.setUsername(auth.getName());
         ticket.setTitle(body.get("title"));
+        // Khớp với trường 'content' trong file CustomerSupport.java của bạn
         ticket.setContent(body.get("content"));
         ticket.setStatus("PENDING");
         ticket.setCreatedAt(LocalDateTime.now());
@@ -55,8 +57,8 @@ public class CustomerSupportController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null) return ResponseEntity.status(401).build();
 
-        // Lỗi gạch đỏ ở đây sẽ hết sau khi bạn cập nhật Repository
         List<CustomerSupport> list = supportRepo.findByUsername(auth.getName());
+        // Sắp xếp theo thời gian tạo mới nhất
         list.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
 
         return ResponseEntity.ok(list);
@@ -81,10 +83,12 @@ public class CustomerSupportController {
         ticket.setStatus("RESOLVED");
         supportRepo.save(ticket);
 
-        User user = userRepository.findByUsername(ticket.getUsername());
+        // --- SỬA LỖI CHÍNH TẠI ĐÂY: Thêm .orElse(null) để lấy User ra khỏi Optional ---
+        User user = userRepository.findByUsername(ticket.getUsername()).orElse(null);
+
         if (user != null) {
             String message = "Yêu cầu hỗ trợ \"" + ticket.getTitle() + "\" đã được Admin phản hồi.";
-            // Gọi Service Notification để báo cho người dùng
+            // Khớp với Service nhận 4 tham số của bạn
             notificationService.createNotification(user.getId(), message, "SUPPORT_REPLY", ticket.getId());
         }
 

@@ -11,7 +11,7 @@ import CarRental.example.service.RentalRecordService;
 import CarRental.example.service.VehicleService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional; // QUAN TRỌNG
+import org.springframework.transaction.annotation.Transactional; // Rất quan trọng cho MySQL
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -55,9 +55,9 @@ public class RentalController {
             vehicleRepo.findById(record.getVehicleId()).ifPresent(v -> response.put("vehicle", v));
         }
 
-        // Lấy thông tin khách hàng (ẩn mật khẩu)
+        // --- SỬA LỖI GẠCH ĐỎ: Xử lý Optional<User> ---
         if (record.getUsername() != null) {
-            User user = userRepository.findByUsername(record.getUsername());
+            User user = userRepository.findByUsername(record.getUsername()).orElse(null);
             if (user != null) {
                 user.setPassword(null);
                 user.setLicenseData(null);
@@ -78,10 +78,10 @@ public class RentalController {
             record.setStatus("CANCELLED");
             rentalRepo.save(record);
 
-            // 2. Trả xe về trạng thái sẵn sàng (Sử dụng hàm updateBookingStatus đã tạo ở VehicleRepository)
+            // 2. Trả xe về trạng thái sẵn sàng
             vehicleRepo.updateBookingStatus(record.getVehicleId(), "AVAILABLE");
 
-            // 3. Nếu Service của bạn có hàm giải phóng giữ chỗ, hãy gọi nó
+            // 3. Giải phóng giữ chỗ nếu có
             vehicleService.releaseHold(record.getVehicleId(), rentalId);
 
             return ResponseEntity.ok("Đã hủy đơn thuê thành công");
@@ -89,9 +89,10 @@ public class RentalController {
         return ResponseEntity.badRequest().body("Không tìm thấy đơn thuê để hủy");
     }
 
-    // Lấy lịch sử thuê của người dùng hiện tại
+    // Lấy lịch sử thuê của người dùng
     @GetMapping("/history/{username}")
     public ResponseEntity<List<Map<String, Object>>> getUserHistory(@PathVariable String username) {
+        // Đảm bảo hàm này đã được định nghĩa trong RentalRecordService của bạn
         List<Map<String, Object>> history = rentalRecordService.getHistoryDetails(username);
         return ResponseEntity.ok(history);
     }

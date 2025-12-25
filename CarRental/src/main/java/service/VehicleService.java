@@ -8,10 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class VehicleService {
     private final VehicleRepository vehicleRepo;
-
-    public VehicleService(VehicleRepository vehicleRepo) {
-        this.vehicleRepo = vehicleRepo;
-    }
+    public VehicleService(VehicleRepository vehicleRepo) { this.vehicleRepo = vehicleRepo; }
 
     @Transactional
     public void markRented(String vehicleId, String rentalId) {
@@ -31,10 +28,12 @@ public class VehicleService {
     @Transactional
     public void releaseHold(String vehicleId, String rentalId) {
         vehicleRepo.findById(vehicleId).ifPresent(v -> {
-            v.setBookingStatus("AVAILABLE");
-            v.setAvailable(true);
-            v.setPendingRentalId(null);
-            vehicleRepo.save(v);
+            if (rentalId == null || rentalId.equals(v.getPendingRentalId())) {
+                v.setBookingStatus("AVAILABLE");
+                v.setAvailable(true);
+                v.setPendingRentalId(null);
+                vehicleRepo.save(v);
+            }
         });
     }
 }

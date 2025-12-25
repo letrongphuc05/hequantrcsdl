@@ -11,15 +11,12 @@ import java.util.List;
 
 @Repository
 public interface VehicleRepository extends JpaRepository<Vehicle, String> {
-
     @Modifying
     @Transactional
     @Query("UPDATE Vehicle v SET v.bookingStatus = :status WHERE v.id = :id")
     void updateBookingStatus(@Param("id") String id, @Param("status") String status);
 
     List<Vehicle> findByStationId(String stationId);
-
     List<Vehicle> findByStationIdAndAvailable(String stationId, boolean available);
-
     long countByStationIdAndBookingStatus(String stationId, String bookingStatus);
 }

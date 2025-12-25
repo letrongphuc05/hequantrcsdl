@@ -7,6 +7,7 @@ import java.util.List;
 
 @Repository
 public interface CustomerSupportRepository extends JpaRepository<CustomerSupport, String> {
-    // Phải có dòng này thì Controller mới gọi được hàm findByUsername
+
+    // Thêm hàm này để Controller tìm được danh sách yêu cầu của người dùng
     List<CustomerSupport> findByUsername(String username);
 }
