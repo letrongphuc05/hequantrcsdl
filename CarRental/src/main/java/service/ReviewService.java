@@ -5,14 +5,13 @@ import CarRental.example.document.Review;
 import CarRental.example.repository.RentalRecordRepository;
 import CarRental.example.repository.ReviewRepository;
 import org.springframework.stereotype.Service;
-
+import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
 public class ReviewService {
-
     private static final double DECIMAL_PLACES_MULTIPLIER = 10.0;
-
     private final ReviewRepository reviewRepository;
     private final RentalRecordRepository rentalRecordRepository;
 
@@ -21,19 +20,14 @@ public class ReviewService {
         this.rentalRecordRepository = rentalRecordRepository;
     }
 
+    @Transactional
     public Review createReview(String bookingId, String userId, String carId, String staffId,
                                Integer carRating, Integer staffRating, String comment) {
-        RentalRecord rental = rentalRecordRepository.findById(bookingId).orElse(null);
-        if (rental == null) {
-            throw new IllegalArgumentException("Booking không tồn tại");
-        }
+        RentalRecord rental = rentalRecordRepository.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Booking không tồn tại"));
 
         if (reviewRepository.existsByBookingId(bookingId)) {
             throw new IllegalArgumentException("Chuyến thuê này đã được đánh giá");
-        }
-
-        if (carRating != null && (carRating < 1 || carRating > 5)) {
-            throw new IllegalArgumentException("Đánh giá xe phải từ 1 đến 5 sao");
         }
 
         Review review = new Review();
@@ -44,20 +38,9 @@ public class ReviewService {
         review.setCarRating(carRating);
         review.setStaffRating(staffRating);
         review.setComment(comment);
+        review.setCreatedAt(LocalDateTime.now());
 
         return reviewRepository.save(review);
-    }
-
-    public boolean isBookingReviewed(String bookingId) {
-        return reviewRepository.existsByBookingId(bookingId);
-    }
-
-    public Optional<Review> getReviewByBookingId(String bookingId) {
-        return reviewRepository.findByBookingId(bookingId);
-    }
-
-    public List<Review> getAllReviews() {
-        return reviewRepository.findAllByOrderByReviewDateDesc();
     }
 
     public Map<String, Object> getReviewStats() {
@@ -67,36 +50,15 @@ public class ReviewService {
         if (allReviews.isEmpty()) {
             stats.put("totalReviews", 0);
             stats.put("avgCarRating", 0.0);
-            stats.put("avgStaffRating", 0.0);
-            stats.put("carRatingDistribution", new int[]{0, 0, 0, 0, 0});
             return stats;
         }
 
-        double totalCarRating = 0;
-        int carRatingCount = 0;
-        double totalStaffRating = 0;
-        int staffRatingCount = 0;
-        int[] carRatingDistribution = new int[5];
-
-        for (Review review : allReviews) {
-            if (review.getCarRating() != null) {
-                totalCarRating += review.getCarRating();
-                carRatingCount++;
-                if (review.getCarRating() >= 1 && review.getCarRating() <= 5) {
-                    carRatingDistribution[review.getCarRating() - 1]++;
-                }
-            }
-            if (review.getStaffRating() != null) {
-                totalStaffRating += review.getStaffRating();
-                staffRatingCount++;
-            }
-        }
+        double totalCarRating = allReviews.stream()
+                .filter(r -> r.getCarRating() != null)
+                .mapToInt(Review::getCarRating).sum();
 
         stats.put("totalReviews", allReviews.size());
-        stats.put("avgCarRating", carRatingCount > 0 ? Math.round((totalCarRating / carRatingCount) * DECIMAL_PLACES_MULTIPLIER) / DECIMAL_PLACES_MULTIPLIER : 0.0);
-        stats.put("avgStaffRating", staffRatingCount > 0 ? Math.round((totalStaffRating / staffRatingCount) * DECIMAL_PLACES_MULTIPLIER) / DECIMAL_PLACES_MULTIPLIER : 0.0);
-        stats.put("carRatingDistribution", carRatingDistribution);
-
+        stats.put("avgCarRating", Math.round((totalCarRating / allReviews.size()) * DECIMAL_PLACES_MULTIPLIER) / DECIMAL_PLACES_MULTIPLIER);
         return stats;
     }
 }

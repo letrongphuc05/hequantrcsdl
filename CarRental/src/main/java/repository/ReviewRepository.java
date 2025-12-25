@@ -6,4 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ReviewRepository extends JpaRepository<Review, String> {
+    // Thêm hàm này để ReviewService hết lỗi
+    boolean existsByBookingId(String bookingId);
 }
