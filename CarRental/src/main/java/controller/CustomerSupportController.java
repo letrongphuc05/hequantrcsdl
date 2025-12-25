@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional; // QUAN TRỌNG: Phải có import này
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/support")
@@ -32,7 +32,6 @@ public class CustomerSupportController {
         this.userRepository = userRepository;
     }
 
-    // 1. Khách hàng gửi yêu cầu
     @PostMapping("/create")
     @Transactional
     public ResponseEntity<?> createTicket(@RequestBody Map<String, String> body) {
@@ -42,8 +41,7 @@ public class CustomerSupportController {
         CustomerSupport ticket = new CustomerSupport();
         ticket.setUsername(auth.getName());
         ticket.setTitle(body.get("title"));
-        // Khớp với trường 'content' trong file CustomerSupport.java của bạn
-        ticket.setContent(body.get("content"));
+        ticket.setContent(body.get("content")); // Đã khớp với Entity
         ticket.setStatus("PENDING");
         ticket.setCreatedAt(LocalDateTime.now());
 
@@ -51,20 +49,17 @@ public class CustomerSupportController {
         return ResponseEntity.ok("Gửi thành công");
     }
 
-    // 2. Khách hàng xem lịch sử yêu cầu
     @GetMapping("/my-history")
     public ResponseEntity<List<CustomerSupport>> getMyHistory() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null) return ResponseEntity.status(401).build();
 
         List<CustomerSupport> list = supportRepo.findByUsername(auth.getName());
-        // Sắp xếp theo thời gian tạo mới nhất
         list.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
 
         return ResponseEntity.ok(list);
     }
 
-    // 3. Admin lấy tất cả yêu cầu
     @GetMapping("/admin/all")
     public ResponseEntity<List<CustomerSupport>> getAllTickets() {
         List<CustomerSupport> list = supportRepo.findAll();
@@ -72,7 +67,6 @@ public class CustomerSupportController {
         return ResponseEntity.ok(list);
     }
 
-    // 4. Admin phản hồi
     @PostMapping("/admin/reply/{id}")
     @Transactional
     public ResponseEntity<?> replyTicket(@PathVariable("id") String id, @RequestBody Map<String, String> body) {
@@ -83,13 +77,12 @@ public class CustomerSupportController {
         ticket.setStatus("RESOLVED");
         supportRepo.save(ticket);
 
-        // --- SỬA LỖI CHÍNH TẠI ĐÂY: Thêm .orElse(null) để lấy User ra khỏi Optional ---
+        // SỬA LỖI: Xử lý Optional bằng orElse(null)
         User user = userRepository.findByUsername(ticket.getUsername()).orElse(null);
-
         if (user != null) {
-            String message = "Yêu cầu hỗ trợ \"" + ticket.getTitle() + "\" đã được Admin phản hồi.";
-            // Khớp với Service nhận 4 tham số của bạn
-            notificationService.createNotification(user.getId(), message, "SUPPORT_REPLY", ticket.getId());
+            String msg = "Yêu cầu hỗ trợ \"" + ticket.getTitle() + "\" đã được phản hồi.";
+            // Gọi Service với 4 tham số: userId, message, type, supportRequestId
+            notificationService.createNotification(user.getId(), msg, "SUPPORT_REPLY", ticket.getId());
         }
 
         return ResponseEntity.ok("Đã phản hồi");

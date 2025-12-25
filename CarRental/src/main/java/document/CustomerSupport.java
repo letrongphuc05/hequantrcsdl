@@ -10,22 +10,15 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 public class CustomerSupport {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
-
     private String username;
     private String title;
-
     @Column(columnDefinition = "TEXT")
-    private String message; // Đảm bảo dùng 'message' thay vì 'content'
-
+    private String content; // Dùng 'content' để khớp với Controller
+    private String status = "PENDING";
     @Column(name = "admin_reply", columnDefinition = "TEXT")
     private String adminReply;
-
-    private String status = "PENDING";
-
-    @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 }

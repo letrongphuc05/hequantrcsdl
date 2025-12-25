@@ -4,6 +4,8 @@ import CarRental.example.document.RentalRecord;
 import CarRental.example.document.Vehicle;
 import CarRental.example.repository.RentalRecordRepository;
 import CarRental.example.repository.VehicleRepository;
+import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional; // Cực kỳ quan trọng
 import org.springframework.web.bind.annotation.*;
 
 import java.time.format.DateTimeFormatter;
@@ -11,194 +13,77 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/staff/handover")
+@CrossOrigin(origins = "*")
 public class StaffHandoverController {
 
     private final RentalRecordRepository rentalRepo;
     private final VehicleRepository vehicleRepo;
-
-    private static final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     public StaffHandoverController(RentalRecordRepository rentalRepo, VehicleRepository vehicleRepo) {
         this.rentalRepo = rentalRepo;
         this.vehicleRepo = vehicleRepo;
     }
 
+    // 1. Lấy danh sách các đơn cần bàn giao xe
     @GetMapping("/list")
     public List<Map<String, Object>> listHandovers() {
         List<Map<String, Object>> result = new ArrayList<>();
+        // Tìm các đơn đã thanh toán (PAID) hoặc đang chờ bàn giao
+        List<RentalRecord> allRecords = rentalRepo.findAll();
 
-        try {
-            System.out.println("=== API /api/staff/handover/list called ===");
+        for (RentalRecord record : allRecords) {
+            // Chỉ lấy các đơn đang ở trạng thái chờ bàn giao xe (ví dụ: PAID hoặc DEPOSIT_PENDING)
+            if ("PAID".equals(record.getStatus()) || "READY".equals(record.getStatus())) {
+                Map<String, Object> map = new HashMap<>();
+                map.put("id", record.getId());
+                map.put("username", record.getUsername());
+                map.put("pickupDate", record.getPickupDate() != null ? record.getPickupDate().format(dateFormatter) : "N/A");
 
-            List<RentalRecord> allRecords = rentalRepo.findAll();
-            System.out.println("Total records found: " + allRecords.size());
+                vehicleRepo.findById(record.getVehicleId()).ifPresent(v -> {
+                    map.put("vehicleName", v.getName());
+                    map.put("plate", v.getPlate());
+                });
 
-            for (RentalRecord record : allRecords) {
-                String paymentStatus = Optional.ofNullable(record.getPaymentStatus()).orElse("").trim().toUpperCase();
-                String status = Optional.ofNullable(record.getStatus()).orElse("").trim().toUpperCase();
-
-                boolean cancelled = status.equals("CANCELLED") || status.equals("EXPIRED")
-                        || paymentStatus.equals("CANCELLED") || paymentStatus.equals("EXPIRED");
-                if (cancelled) {
-                    System.out.println("Skipping record " + record.getId() + " - cancelled/expired");
-                    continue;
-                }
-
-                boolean readyForHandover = paymentStatus.equals("PAID") || paymentStatus.equals("DEPOSIT_PENDING")
-                        || status.equals("CONTRACT_SIGNED") || status.equals("IN_PROGRESS");
-
-                if (!readyForHandover) {
-                    System.out.println("Skipping record " + record.getId() + " - status: " + status + " payment: " + paymentStatus);
-                    continue;
-                }
-
-                Vehicle vehicle = vehicleRepo.findById(record.getVehicleId()).orElse(null);
-                String licensePlate = vehicle != null ? vehicle.getPlate() : "N/A";
-                String vehicleType = vehicle != null ? vehicle.getType() : "N/A";
-
-                Map<String, Object> item = new HashMap<>();
-                item.put("id", record.getId());
-                item.put("licensePlate", licensePlate);
-                item.put("vehicleType", vehicleType);
-                item.put("renterName", record.getUsername());
-                item.put("startDate", record.getStartDate() != null ? record.getStartDate().format(dateFormatter) : null);
-                item.put("endDate", record.getEndDate() != null ? record.getEndDate().format(dateFormatter) : null);
-                item.put("rentalPrice", record.getTotal());
-                item.put("paymentStatus", paymentStatus);
-                item.put("paymentMethod", record.getPaymentMethod());
-                item.put("notes", record.getCheckinNotes());
-
-                result.add(item);
-                System.out.println("Added record: " + record.getId());
+                result.add(map);
             }
-
-            System.out.println("Total items returned: " + result.size());
-        } catch (Exception e) {
-            System.err.println("Error in listHandovers: " + e.getMessage());
-            e.printStackTrace();
         }
-
         return result;
     }
 
-    @GetMapping("/{id}")
-    public Map<String, Object> getHandoverDetail(@PathVariable("id") String id) {
+    // 2. Lấy chi tiết đơn bàn giao
+    @GetMapping("/detail/{id}")
+    public ResponseEntity<?> getHandoverDetail(@PathVariable("id") String id) {
+        RentalRecord record = rentalRepo.findById(id).orElse(null);
+        if (record == null) return ResponseEntity.notFound().build();
+
         Map<String, Object> response = new HashMap<>();
+        response.put("rental", record);
 
-        try {
-            System.out.println("=== Getting handover detail for id: " + id + " ===");
+        vehicleRepo.findById(record.getVehicleId()).ifPresent(v -> response.put("vehicle", v));
 
-            RentalRecord record = rentalRepo.findById(id).orElse(null);
-            if (record == null) {
-                System.out.println("Record not found for id: " + id);
-                response.put("error", "Không tìm thấy hợp đồng thuê");
-                return response;
-            }
-
-            System.out.println("Record found: " + record.getId());
-            System.out.println("VehicleId: " + record.getVehicleId());
-
-            Vehicle vehicle = null;
-            if (record.getVehicleId() != null) {
-                vehicle = vehicleRepo.findById(record.getVehicleId()).orElse(null);
-            }
-
-            String licensePlate = vehicle != null ? vehicle.getPlate() : "N/A";
-            String vehicleType = vehicle != null ? vehicle.getType() : "N/A";
-            String brand = vehicle != null ? vehicle.getBrand() : "N/A";
-
-            try {
-                response.put("id", record.getId());
-                response.put("licensePlate", licensePlate);
-                response.put("vehicleType", vehicleType);
-                response.put("brand", brand);
-                response.put("renterName", record.getUsername() != null ? record.getUsername() : "N/A");
-
-                String startDateStr = null;
-                if (record.getStartDate() != null) {
-                    try {
-                        startDateStr = record.getStartDate().format(dateFormatter);
-                    } catch (Exception e) {
-                        System.err.println("Error formatting startDate: " + e.getMessage());
-                        startDateStr = record.getStartDate().toString();
-                    }
-                }
-                response.put("startDate", startDateStr);
-
-                String endDateStr = null;
-                if (record.getEndDate() != null) {
-                    try {
-                        endDateStr = record.getEndDate().format(dateFormatter);
-                    } catch (Exception e) {
-                        System.err.println("Error formatting endDate: " + e.getMessage());
-                        endDateStr = record.getEndDate().toString();
-                    }
-                }
-                response.put("endDate", endDateStr);
-
-                response.put("rentalDays", record.getRentalDays());
-                response.put("total", record.getTotal());
-                response.put("paymentMethod", record.getPaymentMethod() != null ? record.getPaymentMethod() : "N/A");
-                response.put("paymentStatus", record.getPaymentStatus() != null ? record.getPaymentStatus() : "N/A");
-                response.put("status", record.getStatus() != null ? record.getStatus() : "N/A");
-                response.put("checkinNotes", record.getCheckinNotes() != null ? record.getCheckinNotes() : "");
-                response.put("checkinLatitude", record.getCheckinLatitude());
-                response.put("checkinLongitude", record.getCheckinLongitude());
-                response.put("checkinTime", record.getStartTime());
-                response.put("returnNotes", record.getReturnNotes());
-                response.put("returnLatitude", record.getReturnLatitude());
-                response.put("returnLongitude", record.getReturnLongitude());
-                response.put("returnTime", record.getEndTime());
-
-                System.out.println("Handover detail prepared successfully");
-            } catch (Exception innerE) {
-                System.err.println("Error preparing response data: " + innerE.getMessage());
-                innerE.printStackTrace();
-                response.put("error", "Lỗi khi xử lý dữ liệu: " + innerE.getMessage());
-                return response;
-            }
-
-            return response;
-        } catch (Exception e) {
-            System.err.println("Error in getHandoverDetail: " + e.getMessage());
-            e.printStackTrace();
-            response.put("error", "Lỗi: " + e.getMessage());
-            return response;
-        }
+        return ResponseEntity.ok(response);
     }
 
+    // 3. Xác nhận đã giao xe cho khách - Cần @Transactional để lưu vào MySQL thành công
     @PostMapping("/confirm/{id}")
-    public Map<String, Object> confirmHandover(@PathVariable("id") String id) {
-        Map<String, Object> response = new HashMap<>();
-
-        try {
-            System.out.println("Confirming handover for id: " + id);
-
-            RentalRecord record = rentalRepo.findById(id).orElse(null);
-            if (record == null) {
-                response.put("success", false);
-                response.put("message", "Không tìm thấy hợp đồng thuê");
-                return response;
-            }
-
-            record.setStatus("ACTIVE");
-            rentalRepo.save(record);
-
-            response.put("success", true);
-            response.put("message", "Xác nhận giao xe thành công");
-            System.out.println("Handover confirmed successfully for id: " + id);
-            return response;
-        } catch (Exception e) {
-            System.err.println("Error in confirmHandover: " + e.getMessage());
-            e.printStackTrace();
-            response.put("success", false);
-            response.put("message", "Lỗi: " + e.getMessage());
-            return response;
+    @Transactional
+    public ResponseEntity<?> confirmHandover(@PathVariable("id") String id) {
+        RentalRecord record = rentalRepo.findById(id).orElse(null);
+        if (record == null) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Không tìm thấy đơn thuê"));
         }
+
+        // Cập nhật trạng thái đơn thuê sang đang thực hiện (IN_PROGRESS hoặc ACTIVE)
+        record.setStatus("IN_PROGRESS");
+        rentalRepo.save(record);
+
+        // Cập nhật trạng thái xe sang đã cho thuê (RENTED)
+        vehicleRepo.updateBookingStatus(record.getVehicleId(), "RENTED");
+
+        return ResponseEntity.ok(Map.of("success", true, "message", "Xác nhận bàn giao xe thành công"));
     }
 }
-

@@ -9,9 +9,11 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.transaction.annotation.Transactional; // Import quan trọng
 
 import java.security.Principal;
 import java.util.Base64;
+import java.util.Optional; // Cần thiết để xử lý Optional
 
 @Controller
 @RequestMapping("/ho-so")
@@ -27,63 +29,31 @@ public class ProfileController {
     public String viewProfile(Model model, Principal principal) {
         if (principal == null) return "redirect:/login";
 
-        User user = userRepository.findByUsername(principal.getName());
+        // SỬA LỖI: Dùng .orElse(null) để lấy User ra khỏi Optional
+        User user = userRepository.findByUsername(principal.getName()).orElse(null);
         model.addAttribute("user", user);
 
         // Hiển thị ảnh nếu có
-        if (user.getLicenseData() != null && user.getLicenseData().length > 0) {
-            String base64License = Base64.getEncoder().encodeToString(user.getLicenseData());
-            model.addAttribute("licenseImage", base64License);
-        }
-        if (user.getIdCardData() != null && user.getIdCardData().length > 0) {
-            String base64IdCard = Base64.getEncoder().encodeToString(user.getIdCardData());
-            model.addAttribute("idCardImage", base64IdCard);
+        if (user != null) {
+            if (user.getLicenseData() != null && user.getLicenseData().length > 0) {
+                String base64License = Base64.getEncoder().encodeToString(user.getLicenseData());
+                model.addAttribute("licenseImage", base64License);
+            }
+            if (user.getIdCardData() != null && user.getIdCardData().length > 0) {
+                String base64IdCard = Base64.getEncoder().encodeToString(user.getIdCardData());
+                model.addAttribute("idCardImage", base64IdCard);
+            }
         }
 
         return "user-hosocanhan";
     }
 
-    @PostMapping("/update")
-    public String updateProfile(@ModelAttribute User updatedUser, RedirectAttributes redirectAttributes, Principal principal) {
-        User currentUser = userRepository.findByUsername(principal.getName());
-        if (currentUser != null) {
-            currentUser.setFullName(updatedUser.getFullName());
-            // Cập nhật các trường khác nếu cần
-            userRepository.save(currentUser);
-            redirectAttributes.addFlashAttribute("success", "Cập nhật hồ sơ thành công!");
-        }
-        return "redirect:/ho-so";
-    }
-
-    @PostMapping("/doi-mat-khau")
-    public String changePassword(@RequestParam String currentPassword,
-                                 @RequestParam String newPassword,
-                                 @RequestParam String confirmPassword,
-                                 RedirectAttributes redirectAttributes,
-                                 Principal principal) {
-        User user = userRepository.findByUsername(principal.getName());
-
-        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
-            redirectAttributes.addFlashAttribute("error", "Mật khẩu hiện tại không đúng!");
-            return "redirect:/ho-so";
-        }
-        if (!newPassword.equals(confirmPassword)) {
-            redirectAttributes.addFlashAttribute("error", "Mật khẩu xác nhận không khớp!");
-            return "redirect:/ho-so";
-        }
-
-        user.setPassword(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
-        redirectAttributes.addFlashAttribute("success", "Đổi mật khẩu thành công!");
-        return "redirect:/ho-so";
-    }
-
     @PostMapping("/upload-license")
+    @Transactional // Cần thiết cho thao tác ghi vào MySQL
     public String uploadLicense(@RequestParam("licenseFile") MultipartFile file, Principal principal) {
         try {
-            User user = userRepository.findByUsername(principal.getName());
-            if (!file.isEmpty()) {
-                // SỬA: Lưu trực tiếp byte[] vào MySQL
+            User user = userRepository.findByUsername(principal.getName()).orElse(null);
+            if (user != null && !file.isEmpty()) {
                 user.setLicenseData(file.getBytes());
                 userRepository.save(user);
             }
@@ -94,11 +64,11 @@ public class ProfileController {
     }
 
     @PostMapping("/upload-idcard")
+    @Transactional
     public String uploadIdCard(@RequestParam("idCardFile") MultipartFile file, Principal principal) {
         try {
-            User user = userRepository.findByUsername(principal.getName());
-            if (!file.isEmpty()) {
-                // SỬA: Lưu trực tiếp byte[] vào MySQL
+            User user = userRepository.findByUsername(principal.getName()).orElse(null);
+            if (user != null && !file.isEmpty()) {
                 user.setIdCardData(file.getBytes());
                 userRepository.save(user);
             }
@@ -109,8 +79,9 @@ public class ProfileController {
     }
 
     @PostMapping("/request-verification")
+    @Transactional
     public String requestVerification(Principal principal, RedirectAttributes redirectAttributes) {
-        User user = userRepository.findByUsername(principal.getName());
+        User user = userRepository.findByUsername(principal.getName()).orElse(null);
         if (user != null) {
             if (user.getLicenseData() == null || user.getIdCardData() == null) {
                 redirectAttributes.addFlashAttribute("error", "Vui lòng upload đủ ảnh bằng lái và CCCD trước khi gửi yêu cầu!");

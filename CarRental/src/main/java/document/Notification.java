@@ -10,29 +10,17 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 public class Notification {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
-
-    @Column(name = "user_id")
     private String userId;
-
-    @Column(name = "message")
     private String message;
-
-    @Column(name = "type")
     private String type;
-
-    @Column(name = "is_read")
+    private String supportRequestId;
     private boolean isRead = false;
-
-    @Column(name = "created_date")
     private LocalDateTime createdDate = LocalDateTime.now();
 
-    @Column(name = "support_request_id")
-    private String supportRequestId;
-
+    // Constructor 4 tham số bắt buộc cho Service
     public Notification(String userId, String message, String type, String supportRequestId) {
         this.userId = userId;
         this.message = message;
